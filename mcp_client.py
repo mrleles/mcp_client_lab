@@ -69,4 +69,57 @@ class MCPClient:
                     for t in tools:
                         print(f" - {t.name}: {t.description}")
 
-                
+                elif cmd == "call":
+                    tool_name = input("Tool name: ").strip()
+                    print("Arguments (as JSON, for example, {\"text\": \"hello\"}): ")
+                    args = json.loads(" ").strip()
+                    result = await self.call_tool(tool_name, args)
+                    for content in result.content:
+                        if hasattr(content, 'text'):
+                            print(f"Result: {content.text}")
+
+                elif cmd == "resources":
+                    resources = await self.list_resources
+                    if resources:
+                        for r in resources:
+                            name = getattr(r, 'name', getattr(r, 'description', 'Unnamed resource'))
+                            uri_template = getattr(r, 'uriTemplate', getattr(r, 'uri', 'N/A'))
+                            print(f" - {name}")
+                            print(f" URI template: {uri_template}")
+
+                    else:
+                        print("No resources available")
+
+                elif cmd == "read":
+                    uri = input("URI: ").strip()
+                    result = await self.read_resource(uri)
+                    for content in result.contents:
+                        if hasattr(content, 'text'):
+                            print(f"\n{content.text}")
+
+                elif cmd == "prompts":
+                    prompts = await self.list_prompts()
+                    for p in prompts:
+                        args_info = ""
+                        if p.arguments:
+                            arg_names = [arg.name for arg in p.arguments]
+                            args_info = f" (args: {', '.join(arg_names)})"
+                        print(f"- {p.name}: {p.description}{args_info}")
+
+                elif cmd == "prompt":
+                    prompt_name = input("Prompt name: ").strip()
+                    print("Arguments (as JSON): ")
+                    args = json.loads(input(" ").strip())
+                    result = await self.get_prompt(prompt_name, args)
+                    print(f"\n--- Prompt: {result.description} ---")
+                    for msg in result.messages:
+                        content_text = msg.content.text if hasattr(msg.content, 'text') else msg.content.get('text', '')
+                        print(f"{msg.role}: {content_text}")
+
+                else:
+                    print("Unknown command")
+
+            except json.JSONDecodeError:
+                print("Error: Invalid JSON format")
+            except Exception as e:
+                print(f"Error: {e}")
