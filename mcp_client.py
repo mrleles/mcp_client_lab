@@ -9,6 +9,7 @@ class MCPClient:
     def __init__(self):
         self.session = None
         self.exit_stack = AsyncExitStack()
+        self.history = []
 
     async def connect(self, server_script: str):
         server_params = StdioServerParameters(
@@ -35,6 +36,7 @@ class MCPClient:
 
     async def call_tool(self, tool_name: str, arguments: dict):
         result = await self.session.call_tool(tool_name, arguments)
+        self.history.append({"operation": "tool", "name": tool_name})
         return result
 
     async def list_resources(self):
@@ -55,7 +57,7 @@ class MCPClient:
 
     async def run(self):
         print("\n=== MCP Client ===")
-        print("Commands: tools | call | resources | read | prompts | prompt | quit\n")
+        print("Commands: tools | call | resources | read | prompts | prompt | history | quit\n")
 
         while True:
             cmd = input("> ").strip().lower()
@@ -116,10 +118,41 @@ class MCPClient:
                         content_text = msg.content.text if hasattr(msg.content, 'text') else msg.content.get('text', '')
                         print(f"{msg.role}: {content_text}")
 
+                elif cmd == "history":
+                    if self.history:
+                        print("Operation History:")
+                        for i, entry in enumerate(self.history, 1):
+                            print(f"{i}. {entry['operation']}: {entry['name']}")
+                    else:
+                        print("No operations yet")
+
                 else:
                     print("Unknown command")
 
             except json.JSONDecodeError:
                 print("Error: Invalid JSON format")
+                print("Hint: Use double quotes, for example, {\"text\": \"hello\"}")
             except Exception as e:
                 print(f"Error: {e}")
+                if "not found" in str(e).lower():
+                    print("Hint: Check the resource URI or filename")
+
+    async def cleanup(self):
+        await self.exit_stack.aclose()
+
+async def main():
+    if len(sys.argv) < 2:
+        print("Usage: python mcp_client.py <server_script>")
+        sys.exit(1)
+
+    client = MCPClient()
+    try:
+        await client.connect(sys.argv[1])
+        await client.run()
+    except KeyboardInterrupt:
+        print("\nExiting...")
+    finally:
+        await client.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(main())
